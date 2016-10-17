@@ -1,0 +1,56 @@
+buildscript {
+	ext {
+		springBootVersion = '1.4.1.RELEASE'
+	}
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+		classpath('se.transmode.gradle:gradle-docker:1.2')
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'spring-boot'
+apply plugin: 'groovy'
+apply plugin: 'docker'
+
+jar {
+	baseName = 'baseapp'
+	version = '0.0.1-SNAPSHOT'
+}
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+
+	jcenter()
+	maven {
+		url "http://dl.bintray.com/basecrm/maven"
+	}
+}
+
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-cache')
+	compile('org.projectlombok:lombok')
+	compile('org.springframework.retry:spring-retry')
+	compile('org.springframework.boot:spring-boot-starter-web')
+	compile("com.getbase:basecrm-java:1.4.4")
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+	testCompile "org.codehaus.groovy:groovy-all:2.4.4"
+	testCompile "org.spockframework:spock-core:1.0-groovy-2.4"
+	testCompile "org.hamcrest:hamcrest-core:1.3"
+	testCompile 'org.awaitility:awaitility-groovy:2.0.0'
+}
+
+test {
+	systemProperties = System.properties
+}
+
+logger.info('An info log message.')
+
+compileJava.dependsOn(processResources)
