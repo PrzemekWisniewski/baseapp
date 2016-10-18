@@ -4,8 +4,6 @@ import com.getbase.models.Contact
 import com.getbase.models.Deal
 import com.getbase.models.Stage
 import com.getbase.models.User
-import com.getbase.services.ContactsService
-import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import groovy.util.logging.Slf4j
 import org.joda.time.format.DateTimeFormat
@@ -13,6 +11,8 @@ import org.joda.time.format.DateTimeFormatter
 import spock.lang.Requires
 import spock.lang.Shared
 import spock.lang.Specification
+
+import java.util.concurrent.TimeUnit
 
 import static org.awaitility.Awaitility.await
 
@@ -25,67 +25,37 @@ import static org.awaitility.Awaitility.await
 class BusinessScenariosTests extends Specification {
 
     @Shared
-    def client
-
-    @Shared
     User userSalesRep, userAccManager
 
     @Shared
     Contact createdContact
 
-    @Shared
-    String personContactName = 'person assigned to a manager'
+    final static String personContactName = 'person assigned to a manager'
+    final static String testContactName = 'Foo Contact'
 
     def setupSpec() {
-        client = new Client(new Configuration.Builder()
-                .accessToken(System.getProperty("BASECRM_ACCESS_TOKEN"))
-                .build())
+
+        def client = getClient()
 
         userSalesRep = client
                 .users()
-                .get(convertUserId(System.getProperty("userSalesRep")))
+                .get(getUser('userSalesRep'))
 
         userAccManager = client
                 .users()
-                .get(convertUserId(System.getProperty("userAccManager")))
-
-        def testContactName = 'Foo Contact'
+                .get(getUser('userAccManager'))
 
         assert client
                 .contacts()
-                .list(new ContactsService.SearchCriteria().name(testContactName))
+                .list([name: testContactName])
                 .size() == 0
-
-        createdContact = client.contacts().create(new Contact(name: testContactName, ownerId: userSalesRep.id, isOrganization: true))
-        await().until {
-            client
-                    .contacts()
-                    .list(new ContactsService.SearchCriteria().name(createdContact.name))
-                    .size() == 1
-        }
-    }
-
-    def convertUserId(String userId) {
-        assert userId
-        return new Long(userId)
     }
 
     def cleanupSpec() {
         client
                 .deals()
-                .list(new DealsService.SearchCriteria().contactId((Long) createdContact.id))*.id
-                .each {
-            id ->
-                println(id)
-                client.deals().delete(id)
-        }
-
-        await().until {
-            client
-                    .deals()
-                    .list(new DealsService.SearchCriteria().contactId((Long) createdContact.id))
-                    .size() == 0
-        }
+                .list([contact_id: createdContact.id])*.id
+                .each { id -> client.deals().delete(id) }
 
         client
                 .contacts()
@@ -94,20 +64,50 @@ class BusinessScenariosTests extends Specification {
 
         Contact tempContact = client
                 .contacts()
-                .list(new ContactsService.SearchCriteria().name((String) personContactName))[0]
+                .list([name: personContactName])[0]
 
-        if (null != tempContact) {
+        if (!tempContact)
             client
                     .contacts()
                     .delete(tempContact.id)
-        }
+    }
+
+    Client getClient() {
+
+        new Client(new Configuration.Builder()
+                .accessToken(token)
+                .build())
+    }
+
+    def getToken() {
+        def token = System.getProperty("BASECRM_ACCESS_TOKEN")
+        assert token
+        token
+    }
+
+    def getUser(def property) {
+        def user = convertUserId(System.getProperty(property))
+        assert user
+        user
+    }
+
+
+    def convertUserId(String userId) {
+        assert userId
+        return new Long(userId)
+    }
+
+    def createContact() {
+        Contact contact = client.contacts().create(new Contact(name: testContactName, ownerId: userSalesRep.id, isOrganization: true))
+        log.info("createdContact: {}", contact)
+        contact
     }
 
     def getDealsStageCategory(long dealStageId, boolean active) {
         Optional<Stage> result = client.stages()
                 .list(new StagesService.SearchCriteria().active(active))
                 .stream()
-                .filter { stage -> stage.getId().equals(dealStageId) }
+                .filter { stage -> stage.id == dealStageId }
                 .findAny();
 
         assert result.present
@@ -115,9 +115,16 @@ class BusinessScenariosTests extends Specification {
     }
 
     def "new deal in incoming stage should be created automatically when new contact organization is assigned to a sales rep"() {
+        given:
+        createdContact = createContact()
+
         when:
-        await().sleep(40000)
-        Deal deal = client.deals().list(new DealsService.SearchCriteria().contactId((Long) createdContact.id))[0]
+        await().atMost(40, TimeUnit.SECONDS).until {
+            !getDealsByContactId(createdContact.id).isEmpty()
+        }
+
+        Deal deal = getDealsByContactId(createdContact.id)[0]
+
         DateTimeFormatter dtfOut = DateTimeFormat.forPattern("dd/MM/yyyy")
         String dealCreationDate = dtfOut.print(deal.createdAt)
 
@@ -134,11 +141,13 @@ class BusinessScenariosTests extends Specification {
 
     def "won deal should be assigned to account manager user and contact reassigned from sales rep to acc manager user"() {
         when:
-        Deal createdDeal = client.deals().list(new DealsService.SearchCriteria().contactId(createdContact.id))[0]
-        Stage stage = client.stages().list(new StagesService.SearchCriteria().name("Won"))[0]
+        Deal createdDeal = getDealsByContactId(createdContact.id)[0]
+        Stage stage = client.stages().list([name: "Won"])[0]
         createdDeal.stageId = stage.id
         client.deals().update(createdDeal);
-        await().sleep(40000)
+        await().timeout(30, TimeUnit.SECONDS).pollDelay(20, TimeUnit.SECONDS).atLeast(20, TimeUnit.SECONDS).until {
+            getDealsByContactId(createdContact.id)[0].stageId == stage.id
+        }
         Contact reassigned = client.contacts().get(createdContact.id)
 
         then:
@@ -152,11 +161,16 @@ class BusinessScenariosTests extends Specification {
         Contact person = client.contacts().create(new Contact(name: personContactName, isOrganization: false, ownerId: userAccManager.id))
         await().sleep(15000)
 
-        Deal shouldBeNull = client.deals().list(new DealsService.SearchCriteria().contactId(person.id))[0]
+        Deal shouldBeNull = getDealsByContactId(person.id)[0]
 
         then:
-        assert shouldBeNull == null
+        !shouldBeNull
 
+    }
+
+    List<Deal> getDealsByContactId(Long id) {
+        assert client
+        client.deals().list([contact_id: id])
     }
 
 }
