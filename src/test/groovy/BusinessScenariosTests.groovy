@@ -48,7 +48,7 @@ class BusinessScenariosTests extends Specification {
         assert client
                 .contacts()
                 .list([name: testContactName])
-                .size() == 0
+                .isEmpty()
     }
 
     def cleanupSpec() {
@@ -159,7 +159,9 @@ class BusinessScenariosTests extends Specification {
     def "deal should not be created neither when the contacts owning user is not a sales rep or contact is not an organization"() {
         when:
         Contact person = client.contacts().create(new Contact(name: personContactName, isOrganization: false, ownerId: userAccManager.id))
-        await().sleep(15000)
+        await().atMost(30, TimeUnit.SECONDS).until {
+            null != person.id
+        }
 
         Deal shouldBeNull = getDealsByContactId(person.id)[0]
 
