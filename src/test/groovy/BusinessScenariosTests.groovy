@@ -107,7 +107,7 @@ class BusinessScenariosTests extends Specification {
 
     def getDealsStageCategory(long dealStageId, boolean active) {
         Optional<Stage> result = client.stages()
-                .list(new StagesService.SearchCriteria().active(active))
+                .list([active: active])
                 .stream()
                 .filter { stage -> stage.id == dealStageId }
                 .findAny();
