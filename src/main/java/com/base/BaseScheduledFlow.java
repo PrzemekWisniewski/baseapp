@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -74,32 +73,25 @@ class BaseScheduledFlow {
             log.info("processing contact, received sync event != 'created'. Nothing to do");
         }
 
-        clearSync(meta);
         MDC.clear();
         return true;
-    }
-
-    private void clearSync(Meta meta) {
-        client
-                .sync()
-                .ack("abc321", Arrays.asList(meta.getSync().getAckKey()));
     }
 
     private boolean verifyContact(final Contact contact) {
         boolean isContactAnOrganization = contact.getIsOrganization();
         log.info("verifying contact. contact is a company: {}", isContactAnOrganization);
 
-        return verifyNoExistingDealsOnContact(contact)
+        return noExistingDeals(contact)
                 && isCurrentOwnerASalesRepUser(contact)
                 && isContactAnOrganization;
 
     }
 
-    private boolean verifyNoExistingDealsOnContact(final Contact contact) {
+    private boolean noExistingDeals(final Contact contact) {
         List<Deal> deals = getDealsByContactId(contact);
 
         boolean noExistingDeals = deals.isEmpty();
-        log.info("verifyNoExistingDealsOnContact {}", noExistingDeals);
+        log.info("noExistingDeals {}", noExistingDeals);
 
         return noExistingDeals;
     }
@@ -151,7 +143,6 @@ class BaseScheduledFlow {
         } else {
             log.info("processing deal, but received sync event != updated. Nothing to do.");
         }
-        clearSync(meta);
         MDC.clear();
         return true;
     }
