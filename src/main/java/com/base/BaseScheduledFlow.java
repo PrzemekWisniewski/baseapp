@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Created by przemek on 19.10.2016.
@@ -25,22 +26,20 @@ import java.util.Optional;
 
 @Service
 @Slf4j
-public class BaseScheduledFlow {
+class BaseScheduledFlow {
 
     private Client client;
-    private String deviceUUID;
 
     public BaseScheduledFlow() {
         log.info("BaseScheduledFlow service launching...");
-        deviceUUID = getProperty("deviceUUID");
         this.client = new Client(new Configuration.Builder()
                 .accessToken(getProperty("BASECRM_ACCESS_TOKEN"))
                 .build());
     }
 
     @Scheduled(fixedDelay = 15000)
-    public void reportCurrentTime() {
-        Sync sync = new Sync(client, deviceUUID);
+    public void process() {
+        Sync sync = new Sync(client, "abc321");
         sync.subscribe(Account.class, (meta, account) -> true)
                 .subscribe(Address.class, (meta, address) -> true)
                 .subscribe(AssociatedContact.class, (meta, associatedContact) -> true)
@@ -83,7 +82,7 @@ public class BaseScheduledFlow {
     private void clearSync(Meta meta) {
         client
                 .sync()
-                .ack(deviceUUID, Arrays.asList(meta.getSync().getAckKey()));
+                .ack("abc321", Arrays.asList(meta.getSync().getAckKey()));
     }
 
     private boolean verifyContact(final Contact contact) {
@@ -91,23 +90,23 @@ public class BaseScheduledFlow {
         log.info("verifying contact. contact is a company: {}", isContactAnOrganization);
 
         return verifyNoExistingDealsOnContact(contact)
-                && isCurrentOwnerASalesRepUser(getCurrentUser(contact.getOwnerId()))
-                && contact.getIsOrganization();
+                && isCurrentOwnerASalesRepUser(contact)
+                && isContactAnOrganization;
 
-    }
-
-    private User getCurrentUser(Long id) {
-        return client.users().get(id);
     }
 
     private boolean verifyNoExistingDealsOnContact(final Contact contact) {
-        List<Deal> deals = client.deals()
-                .list(new DealsService.SearchCriteria().contactId(contact.getId()));
+        List<Deal> deals = getDealsByContactId(contact);
 
         boolean noExistingDeals = deals.isEmpty();
         log.info("verifyNoExistingDealsOnContact {}", noExistingDeals);
 
         return noExistingDeals;
+    }
+
+    private List<Deal> getDealsByContactId(Contact contact) {
+        return client.deals()
+                .list(new DealsService.SearchCriteria().contactId(contact.getId()));
     }
 
     private boolean isCurrentOwnerASalesRepUser(final User user) {
@@ -118,7 +117,7 @@ public class BaseScheduledFlow {
         return "active".equals(usersStatus) && isUserSalesRep;
     }
 
-    private boolean createDeal(final Contact contact) {
+    private void createDeal(final Contact contact) {
         final Deal newDeal = new Deal();
         newDeal.setOwnerId(contact.getOwnerId());
         newDeal.setContactId(contact.getId());
@@ -132,7 +131,6 @@ public class BaseScheduledFlow {
         Deal createdDeal = client.deals().create(newDeal);
         log.info("created deal with id: {}, name: {}, owned by: {}, assigned to contact: {}", createdDeal.getId(), dealName, contact.getOwnerId(), contact.getId());
 
-        return null != createdDeal;
     }
 
     private boolean processDeal(final Meta meta, final Deal deal) {
@@ -145,11 +143,9 @@ public class BaseScheduledFlow {
             if (isDealWon(deal)) {
                 Contact relatedContact = client.contacts().get(deal.getContactId());
                 log.info("checking contact {} for reassigning", relatedContact.getId());
-                if (isCurrentOwnerASalesRepUser(getCurrentUser(relatedContact.getOwnerId()))) {
+                if (isCurrentOwnerASalesRepUser(relatedContact)) {
                     log.info("contact is to be reassigned.");
-                    relatedContact.setOwnerId(convertId(getProperty("userAccManager")));
-                    relatedContact = client.contacts().update(relatedContact);
-                    log.info("contact {} was assigned to user: {}, and updated successfully: {}", relatedContact.getId(), relatedContact.getOwnerId(), relatedContact != null);
+                    reassignContact(relatedContact);
                 }
             }
         } else {
@@ -160,15 +156,37 @@ public class BaseScheduledFlow {
         return true;
     }
 
+    private void reassignContact(Contact relatedContact) {
+        relatedContact.setOwnerId(new Long(getProperty("userAccManager")));
+        relatedContact = client.contacts().update(relatedContact);
+        log.info("contact {} was assigned to user: {}, and updated successfully: {}", relatedContact.getId(), relatedContact.getOwnerId(), relatedContact != null);
+    }
+
+    private boolean isCurrentOwnerASalesRepUser(Contact relatedContact) {
+        return isCurrentOwnerASalesRepUser(getCurrentUser(relatedContact.getOwnerId()));
+    }
+
+    private User getCurrentUser(Long id) {
+        return client.users().get(id);
+    }
+
     private boolean isDealWon(Deal deal) {
 
         Optional<Stage> result = client.stages()
-                .list(new StagesService.SearchCriteria().active(false))
+                .list(inactiveStage())
                 .stream()
-                .filter(stage -> deal.getStageId().equals(stage.getId()) && "won".equals(stage.getCategory()))
+                .filter(getStagePredicate(deal))
                 .findAny();
         log.info("is deal won: {}", result.isPresent());
         return result.isPresent();
+    }
+
+    private StagesService.SearchCriteria inactiveStage() {
+        return new StagesService.SearchCriteria().active(false);
+    }
+
+    private Predicate<Stage> getStagePredicate(Deal deal) {
+        return stage -> deal.getStageId().equals(stage.getId()) && "won".equals(stage.getCategory());
     }
 
     private String getProperty(String key) {
@@ -178,10 +196,5 @@ public class BaseScheduledFlow {
         }
         return value;
     }
-
-    private Long convertId(String id) {
-        return new Long(id);
-    }
-
 
 }
