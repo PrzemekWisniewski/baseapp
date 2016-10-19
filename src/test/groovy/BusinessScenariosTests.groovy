@@ -12,8 +12,8 @@ import spock.lang.Requires
 import spock.lang.Shared
 import spock.lang.Specification
 
-import java.util.concurrent.TimeUnit
-
+import static java.lang.System.getProperty
+import static java.util.concurrent.TimeUnit.SECONDS
 import static org.awaitility.Awaitility.await
 
 /**
@@ -21,7 +21,7 @@ import static org.awaitility.Awaitility.await
  */
 
 @Slf4j
-@Requires({ System.getProperty("integrationTests").equals("true") })
+@Requires({ getProperty("integrationTests") == "true" })
 class BusinessScenariosTests extends Specification {
 
     @Shared
@@ -97,8 +97,10 @@ class BusinessScenariosTests extends Specification {
         return new Long(userId)
     }
 
-    def createContact() {
-        Contact contact = client.contacts().create(new Contact(name: testContactName, ownerId: userSalesRep.id, isOrganization: true))
+    def createContact(name, ownerId, isOrganization) {
+        Contact contact = client
+                .contacts()
+                .create(new Contact(name: name, ownerId: ownerId, isOrganization: isOrganization))
         log.info("createdContact: {}", contact)
         contact
     }
@@ -116,10 +118,10 @@ class BusinessScenariosTests extends Specification {
 
     def "new deal in incoming stage should be created automatically when new contact organization is assigned to a sales rep"() {
         given:
-        createdContact = createContact()
+        createdContact = createContact(testContactName, userSalesRep.id, true)
 
         when:
-        await().atMost(40, TimeUnit.SECONDS).until {
+        await().atMost(40, SECONDS).until {
             !getDealsByContactId(createdContact.id).isEmpty()
         }
 
@@ -145,7 +147,7 @@ class BusinessScenariosTests extends Specification {
         Stage stage = client.stages().list([name: "Won"])[0]
         createdDeal.stageId = stage.id
         client.deals().update(createdDeal);
-        await().timeout(30, TimeUnit.SECONDS).pollDelay(20, TimeUnit.SECONDS).atLeast(20, TimeUnit.SECONDS).until {
+        await().timeout(30, SECONDS).pollDelay(20, SECONDS).atLeast(20, SECONDS).until {
             getDealsByContactId(createdContact.id)[0].stageId == stage.id
         }
         Contact reassigned = client.contacts().get(createdContact.id)
@@ -158,8 +160,8 @@ class BusinessScenariosTests extends Specification {
 
     def "deal should not be created neither when the contacts owning user is not a sales rep or contact is not an organization"() {
         when:
-        Contact person = client.contacts().create(new Contact(name: personContactName, isOrganization: false, ownerId: userAccManager.id))
-        await().atMost(30, TimeUnit.SECONDS).until {
+        Contact person = createContact(personContactName, userAccManager.id, false)
+        await().atMost(30, SECONDS).until {
             null != person.id
         }
 
