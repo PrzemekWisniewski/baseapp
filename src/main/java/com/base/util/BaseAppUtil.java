@@ -9,7 +9,8 @@ import org.springframework.core.env.MissingRequiredPropertiesException;
  */
 public abstract class BaseAppUtil {
 
-    private BaseAppUtil(){}
+    private BaseAppUtil() {
+    }
 
     public static Client baseClient() {
         return new com.getbase.Client(new Configuration.Builder()
@@ -20,7 +21,10 @@ public abstract class BaseAppUtil {
     public static String getProperty(String key) {
         String value = System.getProperty(key);
         if (null == value) {
-            throw new MissingRequiredPropertiesException();
+            value = System.getenv(key);
+            if (null == value) {
+                throw new MissingRequiredPropertiesException();
+            }
         }
         return value;
     }
