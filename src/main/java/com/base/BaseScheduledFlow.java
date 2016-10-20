@@ -29,7 +29,7 @@ class BaseScheduledFlow {
 
     public BaseScheduledFlow() {
         log.info("BaseScheduledFlow service launching...");
-        this.client = new BaseAppUtil().baseClient();
+        this.client = BaseAppUtil.baseClient();
     }
 
 

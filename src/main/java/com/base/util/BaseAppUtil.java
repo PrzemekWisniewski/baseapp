@@ -7,15 +7,17 @@ import org.springframework.core.env.MissingRequiredPropertiesException;
 /**
  * Created by przemek on 19.10.2016.
  */
-public class BaseAppUtil {
+public abstract class BaseAppUtil {
 
-    public Client baseClient() {
+    private BaseAppUtil(){}
+
+    public static Client baseClient() {
         return new com.getbase.Client(new Configuration.Builder()
                 .accessToken(getProperty("BASECRM_ACCESS_TOKEN"))
                 .build());
     }
 
-    public String getProperty(String key) {
+    public static String getProperty(String key) {
         String value = System.getProperty(key);
         if (null == value) {
             throw new MissingRequiredPropertiesException();

@@ -1,6 +1,5 @@
 package com.base.processors;
 
-import com.base.util.BaseAppUtil;
 import com.getbase.Client;
 import com.getbase.models.Contact;
 import com.getbase.models.Deal;
@@ -16,7 +15,8 @@ import javax.annotation.PostConstruct;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static java.lang.System.getProperty;
+import static com.base.util.BaseAppUtil.baseClient;
+import static com.base.util.BaseAppUtil.getProperty;
 
 /**
  * Created by przemek on 19.10.2016.
@@ -30,7 +30,7 @@ public class DealProcessor {
 
     @PostConstruct
     void initClient() {
-        this.client = new BaseAppUtil().baseClient();
+        this.client = baseClient();
     }
 
     public boolean process(final Meta meta, final Deal deal) {
@@ -88,8 +88,8 @@ public class DealProcessor {
 
     private void reassignContact(Contact relatedContact) {
         relatedContact.setOwnerId(new Long(getProperty("userAccManager")));
-        relatedContact = client.contacts().update(relatedContact);
-        log.info("contact {} was assigned to user: {}, and updated successfully: {}", relatedContact.getId(), relatedContact.getOwnerId(), relatedContact != null);
+        client.contacts().update(relatedContact);
+        log.info("contact {} was assigned to user: {}, and updated successfully", relatedContact.getId(), relatedContact.getOwnerId());
     }
 
 }

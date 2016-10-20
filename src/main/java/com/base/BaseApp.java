@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
+@SuppressWarnings({"squid:S2095", "squid:S1118"})
 public class BaseApp {
 
     public static void main(String[] args) {

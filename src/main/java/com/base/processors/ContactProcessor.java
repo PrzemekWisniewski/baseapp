@@ -1,6 +1,5 @@
 package com.base.processors;
 
-import com.base.util.BaseAppUtil;
 import com.getbase.Client;
 import com.getbase.models.Contact;
 import com.getbase.models.Deal;
@@ -16,6 +15,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static com.base.util.BaseAppUtil.baseClient;
+
 /**
  * Created by przemek on 19.10.2016.
  */
@@ -27,7 +28,7 @@ public class ContactProcessor {
 
     @PostConstruct
     void initClient() {
-        this.client = new BaseAppUtil().baseClient();
+        this.client = baseClient();
     }
 
 
