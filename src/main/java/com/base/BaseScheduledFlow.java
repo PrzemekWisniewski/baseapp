@@ -2,7 +2,6 @@ package com.base;
 
 import com.base.processors.ContactProcessor;
 import com.base.processors.DealProcessor;
-import com.getbase.Client;
 import com.getbase.models.*;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +20,6 @@ import static com.base.util.BaseAppUtil.getProperty;
 @Slf4j
 class BaseScheduledFlow {
 
-    private final Client client;
-
     @Autowired
     private DealProcessor dealProcessor;
 
@@ -31,13 +28,12 @@ class BaseScheduledFlow {
 
     public BaseScheduledFlow() {
         log.info("BaseScheduledFlow service launching...");
-        this.client = baseClient();
     }
 
 
     @Scheduled(fixedDelay = 15000)
     public void process() {
-        Sync sync = new Sync(client, getProperty("deviceUUID"));
+        Sync sync = new Sync(baseClient(), getProperty("deviceUUID"));
         sync.subscribe(Account.class, (meta, account) -> true)
                 .subscribe(Address.class, (meta, address) -> true)
                 .subscribe(AssociatedContact.class, (meta, associatedContact) -> true)
