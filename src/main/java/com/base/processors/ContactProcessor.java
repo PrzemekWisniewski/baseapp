@@ -39,11 +39,9 @@ public class ContactProcessor {
 
         if (isContactCreated) {
             log.info("processing contact, sync event received: '{}'", syncEventType);
-            if ("created".equals(syncEventType)) {
-                log.info("contact with id: {} is to be verified", contact.getId());
-                if (verifyContact(contact)) {
-                    createDeal(contact);
-                }
+            log.info("contact with id: {} is to be verified", contact.getId());
+            if (verifyContact(contact)) {
+                createDeal(contact);
             }
         } else {
             log.info("processing contact, received sync event != 'created'. Nothing to do");
