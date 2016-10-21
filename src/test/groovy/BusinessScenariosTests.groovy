@@ -66,7 +66,7 @@ class BusinessScenariosTests extends Specification {
                 .contacts()
                 .list([name: personContactName])[0]
 
-        if (!tempContact)
+        if (tempContact)
             client
                     .contacts()
                     .delete(tempContact.id)
