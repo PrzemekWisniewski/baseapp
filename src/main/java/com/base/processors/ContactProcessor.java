@@ -33,8 +33,10 @@ public class ContactProcessor {
 
 
     public boolean process(final Meta meta, final Contact contact) {
-        MDC.put("contact", contact.getId().toString());
-        final String syncEventType = meta.getSync().getEventType();
+        MDC.put("contact", contact.getId()
+                .toString());
+        final String syncEventType = meta.getSync()
+                .getEventType();
         boolean isContactCreated = "created".equals(syncEventType);
 
         if (isContactCreated) {
@@ -78,14 +80,18 @@ public class ContactProcessor {
     private boolean isOwnerASalesRep(Long ownerId) {
         User user = getCurrentUser(ownerId);
         String usersStatus = user.getStatus();
-        boolean isUserSalesRep = user.getEmail().contains("_salesrep@");
-        log.info("isOwnerASalesRep, userId: {}, user's status: {}, and user is a sales rep: {}", user.getId(), usersStatus, isUserSalesRep);
+        boolean isUserSalesRep = user.getEmail()
+                .contains("_salesrep@");
+        log.info("isOwnerASalesRep, userId: {}, user's status: {}, and user is a sales rep: {}", user
+                        .getId(),
+                usersStatus, isUserSalesRep);
 
         return "active".equals(usersStatus) && isUserSalesRep;
     }
 
     private User getCurrentUser(Long id) {
-        return client.users().get(id);
+        return client.users()
+                .get(id);
     }
 
     private void createDeal(final Contact contact) {
@@ -93,15 +99,19 @@ public class ContactProcessor {
         newDeal.setOwnerId(contact.getOwnerId());
         newDeal.setContactId(contact.getId());
 
-        LocalDate now = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-        String dealName = contact.getName() + " " + now.format(formatter);
+        String dealName = getDealName(contact.getName());
         newDeal.setName(dealName);
 
-        Deal createdDeal = client.deals().create(newDeal);
-        log.info("created deal with id: {}, name: {}, owned by: {}, assigned to contact: {}", createdDeal.getId(), dealName, contact.getOwnerId(), contact.getId());
+        Deal createdDeal = client.deals()
+                .create(newDeal);
+        log.info("created deal with id: {}, name: {}, owned by: {}, assigned to contact: {}",
+                createdDeal.getId(), dealName, contact.getOwnerId(), contact.getId());
 
     }
 
+    private String getDealName(String name) {
+        LocalDate now = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return name + " " + now.format(formatter);
+    }
 }
