@@ -82,8 +82,7 @@ public class ContactProcessor {
         String usersStatus = user.getStatus();
         boolean isUserSalesRep = user.getEmail()
                 .contains("_salesrep@");
-        log.info("isOwnerASalesRep, userId: {}, user's status: {}, and user is a sales rep: {}", user
-                        .getId(),
+        log.info("userId: {}, user's status: {}, and user is a sales rep: {}", user.getId(),
                 usersStatus, isUserSalesRep);
 
         return "active".equals(usersStatus) && isUserSalesRep;
