@@ -58,4 +58,16 @@ test {
 
 logger.info('An info log message.')
 
+
 compileJava.dependsOn(processResources)
+
+task buildDocker(type: Docker, dependsOn: build) {
+	applicationName = jar.baseName
+	dockerfile = file('src/main/docker/Dockerfile')
+	doFirst {
+		copy {
+			from jar
+			into stageDir
+		}
+	}
+}

@@ -64,7 +64,6 @@ abstract class TestSetup extends Specification {
         }
     }
 
-
     Client getClient() {
         new Client(new Configuration.Builder()
                 .accessToken(token)
@@ -106,7 +105,6 @@ abstract class TestSetup extends Specification {
         assert result.present
         result.get().category
     }
-
 
     List<Deal> getDealsByContactId(Long id) {
         assert client

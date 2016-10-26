@@ -3,32 +3,27 @@ package com.base.processors;
 import com.getbase.Client;
 import com.getbase.models.Contact;
 import com.getbase.models.Deal;
-import com.getbase.models.User;
 import com.getbase.services.DealsService;
 import com.getbase.sync.Meta;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-
-import static com.base.util.BaseAppUtil.baseClient;
 
 /**
  * Created by przemek on 19.10.2016.
  */
 @Component
 @Slf4j
-public class ContactProcessor {
+public class ContactProcessor extends AbstractProcessor {
 
-    private Client client;
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    @PostConstruct
-    void initClient() {
-        this.client = baseClient();
+    public ContactProcessor(Client client) {
+        super(client);
     }
 
 
@@ -37,20 +32,20 @@ public class ContactProcessor {
                 .toString());
         final String syncEventType = meta.getSync()
                 .getEventType();
-        boolean isContactCreated = "created".equals(syncEventType);
+        log.info("processing contact, sync event received: '{}'", syncEventType);
 
-        if (isContactCreated) {
-            log.info("processing contact, sync event received: '{}'", syncEventType);
-            log.info("contact with id: {} is to be verified", contact.getId());
-            if (verifyContact(contact)) {
-                createDeal(contact);
+        if ("created".equals(syncEventType)) {
+            try {
+                log.info("contact with id: {} is to be verified", contact.getId());
+                if (verifyContact(contact)) {
+                    return createDeal(contact);
+                }
+            } finally {
+                MDC.remove("contact");
             }
-        } else {
-            log.info("processing contact, received sync event != 'created'. Nothing to do");
         }
 
-        MDC.clear();
-        return true;
+        return false;
     }
 
     private boolean verifyContact(final Contact contact) {
@@ -77,23 +72,8 @@ public class ContactProcessor {
                 .list(new DealsService.SearchCriteria().contactId(contact.getId()));
     }
 
-    private boolean isOwnerASalesRep(Long ownerId) {
-        User user = getCurrentUser(ownerId);
-        String usersStatus = user.getStatus();
-        boolean isUserSalesRep = user.getEmail()
-                .contains("_salesrep@");
-        log.info("userId: {}, user's status: {}, and user is a sales rep: {}", user.getId(),
-                usersStatus, isUserSalesRep);
 
-        return "active".equals(usersStatus) && isUserSalesRep;
-    }
-
-    private User getCurrentUser(Long id) {
-        return client.users()
-                .get(id);
-    }
-
-    private void createDeal(final Contact contact) {
+    private boolean createDeal(final Contact contact) {
         final Deal newDeal = new Deal();
         newDeal.setOwnerId(contact.getOwnerId());
         newDeal.setContactId(contact.getId());
@@ -101,16 +81,21 @@ public class ContactProcessor {
         String dealName = getDealName(contact.getName());
         newDeal.setName(dealName);
 
-        Deal createdDeal = client.deals()
-                .create(newDeal);
-        log.info("created deal with id: {}, name: {}, owned by: {}, assigned to contact: {}",
-                createdDeal.getId(), dealName, contact.getOwnerId(), contact.getId());
-
+        try {
+            Deal createdDeal = client.deals()
+                    .create(newDeal);
+            log.info("created deal with id: {}, name: {}, owned by: {}, assigned to contact: {}",
+                    createdDeal.getId(), dealName, contact.getOwnerId(), contact.getId());
+            return true;
+        } catch (Exception e) {
+            log.info("exception occured when creating deal {}, exception message: {}, contact id: {}," +
+                    "", dealName, e.getMessage(), contact.getId());
+        }
+        return false;
     }
 
     private String getDealName(String name) {
         LocalDate now = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         return name + " " + now.format(formatter);
     }
 }

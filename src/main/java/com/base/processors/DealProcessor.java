@@ -4,19 +4,16 @@ import com.getbase.Client;
 import com.getbase.models.Contact;
 import com.getbase.models.Deal;
 import com.getbase.models.Stage;
-import com.getbase.models.User;
 import com.getbase.services.StagesService;
 import com.getbase.sync.Meta;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.util.Optional;
 import java.util.function.Predicate;
-
-import static com.base.util.BaseAppUtil.baseClient;
-import static com.base.util.BaseAppUtil.getProperty;
 
 /**
  * Created by przemek on 19.10.2016.
@@ -24,13 +21,14 @@ import static com.base.util.BaseAppUtil.getProperty;
 
 @Component
 @Slf4j
-public class DealProcessor {
+public class DealProcessor extends AbstractProcessor {
 
-    private Client client;
+    private final String accManager;
 
-    @PostConstruct
-    void initClient() {
-        this.client = baseClient();
+    @Autowired
+    public DealProcessor(Client client, @Value("${flow.userAccManager}") String accManager) {
+        super(client);
+        this.accManager = accManager;
     }
 
     public boolean process(final Meta meta, final Deal deal) {
@@ -38,24 +36,25 @@ public class DealProcessor {
                 .toString());
         String syncEventType = meta.getSync()
                 .getEventType();
-        boolean isDealUpdated = "updated".equals(syncEventType);
 
-        if (isDealUpdated) {
-            log.info("processing deal, sync event received: '{}'", syncEventType);
-            if (isDealWon(deal)) {
-                Contact relatedContact = client.contacts()
-                        .get(deal.getContactId());
-                log.info("checking contact {} for reassigning", relatedContact.getId());
-                if (isCurrentOwnerASalesRepUser(relatedContact.getOwnerId())) {
-                    log.info("contact is to be reassigned.");
-                    reassignContact(relatedContact);
+        log.info("processing deal, sync event received: '{}'", syncEventType);
+
+        if ("updated".equals(syncEventType)) {
+            try {
+                if (isDealWon(deal)) {
+                    Contact relatedContact = client.contacts()
+                            .get(deal.getContactId());
+                    log.info("checking contact {} for reassigning", relatedContact.getId());
+                    if (isOwnerASalesRep(relatedContact.getOwnerId())) {
+                        log.info("contact is to be reassigned.");
+                        return reassignContact(relatedContact);
+                    }
                 }
+            } finally {
+                MDC.remove("deal");
             }
-        } else {
-            log.info("processing deal, but received sync event != updated. Nothing to do.");
         }
-        MDC.clear();
-        return true;
+        return false;
     }
 
     private boolean isDealWon(Deal deal) {
@@ -64,7 +63,8 @@ public class DealProcessor {
                 .stream()
                 .filter(getStagePredicate(deal))
                 .findAny();
-        log.info("is deal won: {}", result.isPresent());
+        log.info("is deal {} won: {}", result.get()
+                .getId(), result.isPresent());
         return result.isPresent();
     }
 
@@ -77,28 +77,18 @@ public class DealProcessor {
                 .equals(stage.getId()) && "won".equals(stage.getCategory());
     }
 
-    private boolean isCurrentOwnerASalesRepUser(Long ownerId) {
-        User currentUser = getCurrentUser(ownerId);
-        String usersStatus = currentUser.getStatus();
-        boolean isUserSalesRep = currentUser.getEmail()
-                .contains("_salesrep@");
-        log.info("userId: {}, user's status: {}, and user is a sales rep: {}", currentUser.getId(),
-                usersStatus, isUserSalesRep);
-
-        return "active".equals(usersStatus) && isUserSalesRep;
-    }
-
-    private User getCurrentUser(Long id) {
-        return client.users()
-                .get(id);
-    }
-
-    private void reassignContact(Contact relatedContact) {
-        relatedContact.setOwnerId(new Long(getProperty("userAccManager")));
-        client.contacts()
-                .update(relatedContact);
-        log.info("contact {} was assigned to user: {}, and updated successfully", relatedContact.getId(),
-                relatedContact.getOwnerId());
+    private boolean reassignContact(Contact relatedContact) {
+        relatedContact.setOwnerId(new Long(accManager));
+        try {
+            client.contacts()
+                    .update(relatedContact);
+            log.info("contact {} was assigned to user: {}, and updated successfully", relatedContact.getId(),
+                    relatedContact.getOwnerId());
+            return true;
+        } catch (Exception e) {
+            log.info("reassigning contact {} failed, {}", relatedContact.getId(), e.getMessage());
+        }
+        return false;
     }
 
 }

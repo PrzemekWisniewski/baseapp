@@ -2,15 +2,13 @@ package com.base;
 
 import com.base.processors.ContactProcessor;
 import com.base.processors.DealProcessor;
+import com.getbase.Client;
 import com.getbase.models.*;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
-import static com.base.util.BaseAppUtil.baseClient;
-import static com.base.util.BaseAppUtil.getProperty;
 
 /**
  * Created by przemek on 19.10.2016.
@@ -20,20 +18,24 @@ import static com.base.util.BaseAppUtil.getProperty;
 @Slf4j
 class BaseScheduledFlow {
 
-    @Autowired
-    private DealProcessor dealProcessor;
+    private final ContactProcessor contactProcessor;
+    private final DealProcessor dealProcessor;
+    private final Client client;
 
     @Autowired
-    private ContactProcessor contactProcessor;
-
-    public BaseScheduledFlow() {
+    public BaseScheduledFlow(final Client client, final ContactProcessor contactProcessor, final
+    DealProcessor
+            dealProcessor) {
         log.info("BaseScheduledFlow service launching...");
+        this.client = client;
+        this.contactProcessor = contactProcessor;
+        this.dealProcessor = dealProcessor;
     }
 
 
-    @Scheduled(fixedDelay = 15000)
+    @Scheduled(fixedDelayString = "${flow.fixedDelay}")
     public void process() {
-        Sync sync = new Sync(baseClient(), getProperty("deviceUUID"));
+        Sync sync = new Sync(client, "${flow.deviceid}");
         sync.subscribe(Account.class, (meta, account) -> true)
                 .subscribe(Address.class, (meta, address) -> true)
                 .subscribe(AssociatedContact.class, (meta, associatedContact) -> true)

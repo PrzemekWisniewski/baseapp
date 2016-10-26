@@ -48,27 +48,26 @@ class BusinessScenariosTests extends TestSetup {
         }
     }
 
-    def "deal should not be created neither when the contacts owning user is not a sales rep or contact is not an organization"() {
+    def "deal should not be created when the contact is not an organization"() {
         when:
-        Contact person = createContact(personContactName, userAccManager.id, false)
+        Contact person = createContact(personContactName, userSalesRep.id, false)
         await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
             null != person.id
         }
 
         then:
         getDealsByContactId(person.id).isEmpty()
-
-        when:
-        person.isOrganization = true
-        person.ownerId = userSalesRep.id
-        client.contacts().update(person);
-
-        then:
-        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
-            client.contacts().get(person.id)?.ownerId == userSalesRep.id
-        }
-        getDealsByContactId(person.id).isEmpty()
     }
 
+    def "deal should not be created when the contacts owning user is not a sales rep"() {
+        when:
+        Contact person = createContact(personContactName, userAccManager.id, true)
+        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
+            null != person.id
+        }
+
+        then:
+        getDealsByContactId(person.id).isEmpty()
+    }
 
 }
