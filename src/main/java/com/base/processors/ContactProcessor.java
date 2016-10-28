@@ -89,7 +89,7 @@ public class ContactProcessor extends AbstractProcessor {
             return true;
         } catch (Exception e) {
             log.info("exception occured when creating deal {}, exception message: {}, contact id: {}," +
-                    "", dealName, e.getMessage(), contact.getId());
+                    "", dealName, e, contact.getId());
         }
         return false;
     }

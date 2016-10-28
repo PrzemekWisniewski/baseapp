@@ -86,7 +86,7 @@ public class DealProcessor extends AbstractProcessor {
                     relatedContact.getOwnerId());
             return true;
         } catch (Exception e) {
-            log.info("reassigning contact {} failed, {}", relatedContact.getId(), e.getMessage());
+            log.info("reassigning contact {} failed, {}", relatedContact.getId(), e);
         }
         return false;
     }
