@@ -5,6 +5,7 @@ import com.base.processors.DealProcessor;
 import com.getbase.Client;
 import com.getbase.models.*;
 import com.getbase.sync.Sync;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,15 +24,15 @@ class BaseScheduledFlow {
     private final Client client;
 
     @Autowired
-    public BaseScheduledFlow(final Client client, final ContactProcessor contactProcessor, final
-    DealProcessor
-            dealProcessor) {
+    public BaseScheduledFlow(
+            @NonNull final Client client,
+            @NonNull final ContactProcessor contactProcessor,
+            @NonNull final DealProcessor dealProcessor) {
         log.info("BaseScheduledFlow service launching...");
         this.client = client;
         this.contactProcessor = contactProcessor;
         this.dealProcessor = dealProcessor;
     }
-
 
     @Scheduled(fixedDelayString = "${flow.fixedDelay}")
     public void process() {

@@ -59,8 +59,7 @@ abstract class TestSetup extends Specification {
 
         client.contacts()
                 .list([name: personContactName])*.id
-                .each { id ->
-            client.contacts().delete(id)
+                .each { id -> client.contacts().delete(id)
         }
     }
 
@@ -87,10 +86,10 @@ abstract class TestSetup extends Specification {
         return new Long(userId)
     }
 
-    def createContact(name, ownerId, isOrganization) {
+    def createContact(name, ownerId, contactType) {
         Contact contact = client
                 .contacts()
-                .create(new Contact(name: name, ownerId: ownerId, isOrganization: isOrganization))
+                .create(new Contact(name: name, ownerId: ownerId, isOrganization: contactType.type))
         log.info("createdContact: {}", contact)
         contact
     }
@@ -114,4 +113,5 @@ abstract class TestSetup extends Specification {
     def checkIfUserActive(user) {
         assert "active" == user.status
     }
+
 }

@@ -16,20 +16,17 @@ import static org.awaitility.Awaitility.await
 class BusinessScenariosTests extends TestSetup {
 
     def "new deal in incoming stage should be created automatically when new contact organization is assigned to a sales rep"() {
-        given:
-        createdContact = createContact(testContactName, userSalesRep.id, true)
-
         when:
+        createdContact = createContact(testContactName, userSalesRep.id, ContactType.ORGANIZATION)
         await().atMost(40, SECONDS).until {
             !getDealsByContactId(createdContact.id).isEmpty()
         }
-        Deal deal = getDealsByContactId(createdContact.id)[0]
+        Deal deal = getDealsByContactId(createdContact.id).first()
 
         DateTimeFormatter dtfOut = DateTimeFormat.forPattern("dd/MM/yyyy")
         String dealCreationDate = dtfOut.print(deal.createdAt)
 
         then:
-        deal.name
         "${createdContact.name} ${dealCreationDate}" == deal.name
         deal.contactId == createdContact.id
         "incoming" == getDealsStageCategory(deal.stageId)
@@ -37,37 +34,35 @@ class BusinessScenariosTests extends TestSetup {
 
     def "won deal should be assigned to account manager user and contact reassigned from sales rep to acc manager user"() {
         when:
-        Deal createdDeal = getDealsByContactId(createdContact.id)[0]
-        Stage stage = client.stages().list([name: "Won"])[0]
+        Deal createdDeal = getDealsByContactId(createdContact.id).first()
+        Stage stage = client.stages().list([name: "Won"]).first()
         createdDeal.stageId = stage.id
         client.deals().update(createdDeal);
 
         then:
-        await().timeout(40, SECONDS).pollDelay(20, SECONDS).until {
+        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
             client.contacts().get(createdContact.id)?.ownerId == userAccManager.id
         }
     }
 
     def "deal should not be created when the contact is not an organization"() {
         when:
-        Contact person = createContact(personContactName, userSalesRep.id, false)
-        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
-            null != person.id
-        }
+        Contact person = createContact(personContactName, userSalesRep.id, ContactType.NON_ORGANIZATION)
 
         then:
-        getDealsByContactId(person.id).isEmpty()
+        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
+            getDealsByContactId(person.id).isEmpty()
+        }
     }
 
     def "deal should not be created when the contacts owning user is not a sales rep"() {
         when:
-        Contact person = createContact(personContactName, userAccManager.id, true)
-        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
-            null != person.id
-        }
+        Contact person = createContact(personContactName, userAccManager.id, ContactType.ORGANIZATION)
 
         then:
-        getDealsByContactId(person.id).isEmpty()
+        await().timeout(60, SECONDS).pollDelay(20, SECONDS).until {
+            getDealsByContactId(person.id).isEmpty()
+        }
     }
 
 }

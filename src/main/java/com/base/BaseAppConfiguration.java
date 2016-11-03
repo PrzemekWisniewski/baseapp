@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Created by przemek on 26/10/16.
  */
+
 @Configuration
 class BaseAppConfiguration {
 
@@ -18,10 +19,9 @@ class BaseAppConfiguration {
     }
 
     @Bean
-    Client Client() {
-        return new
-                Client(new com.getbase.Configuration.Builder()
-                .accessToken(token)
-                .build());
+    Client client() {
+        return new Client(new com.getbase.Configuration.Builder()
+                                  .accessToken(token)
+                                  .build());
     }
 }
